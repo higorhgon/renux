@@ -63,8 +63,16 @@ const table = blk: {
 };
 
 pub fn handles(cp: u32) bool {
+    if (isPowerline(cp)) return true;
     if (cp >= 0x2500 and cp <= 0x257F) return table[cp - 0x2500] != null or (cp >= 0x256D and cp <= 0x2573);
     return isBlock(cp);
+}
+
+/// The Powerline separators (arrows, half circles and corner triangles). Fonts draw them at
+/// the size of their glyph box, which rarely fills the cell; drawn here they meet the cell's
+/// edges, so a prompt's segments join with no gap, as in other terminals.
+pub fn isPowerline(cp: u32) bool {
+    return cp >= 0xE0B0 and cp <= 0xE0BF;
 }
 
 /// Whether a character is made only of filled rectangles: the block elements, the quadrants
@@ -201,9 +209,96 @@ const RectList = struct {
 /// Draws a rounded corner or a diagonal in the cell at (x, y) of size (w, h), in the current
 /// source color. The straight lines are `lineRects`'s.
 pub fn draw(cr: *cairo.Context, cp: u32, x: f64, y: f64, w: f64, h: f64) void {
+    if (isPowerline(cp)) return powerline(cr, cp, x, y, w, h);
     const thin = @max(1, @round(h / 16));
     if (cp >= 0x256D and cp <= 0x2570) return rounded(cr, cp, x, y, w, h, thin);
     if (cp >= 0x2571 and cp <= 0x2573) return diagonal(cr, cp, x, y, w, h, thin);
+}
+
+/// A Powerline separator in the cell at (x, y). Filled shapes reach half a pixel past the
+/// edge they share with the next cell, so no seam shows between them.
+fn powerline(cr: *cairo.Context, cp: u32, x: f64, y: f64, w: f64, h: f64) void {
+    const e = 0.5;
+    const my = y + h / 2;
+    const thin = @max(1, @round(h / 16));
+    switch (cp) {
+        0xE0B0, 0xE0B2 => {
+            const right = cp == 0xE0B0;
+            const base = if (right) x - e else x + w + e;
+            const tip = if (right) x + w else x;
+            cr.moveTo(base, y);
+            cr.lineTo(tip, my);
+            cr.lineTo(base, y + h);
+            cr.closePath();
+            cr.fill();
+        },
+        0xE0B1, 0xE0B3 => {
+            const right = cp == 0xE0B1;
+            cr.moveTo(if (right) x else x + w, y);
+            cr.lineTo(if (right) x + w else x, my);
+            cr.lineTo(if (right) x else x + w, y + h);
+            cr.setLineWidth(thin);
+            cr.stroke();
+        },
+        0xE0B4, 0xE0B5, 0xE0B6, 0xE0B7 => {
+            const right = cp == 0xE0B4 or cp == 0xE0B5;
+            const filled = cp == 0xE0B4 or cp == 0xE0B6;
+            const edge = if (right) x - e else x + w + e;
+            cr.save();
+            cr.translate(if (right) x else x + w, my);
+            cr.scale(w, h / 2);
+            if (right) cr.arc(0, 0, 1, -std.math.pi / 2.0, std.math.pi / 2.0) else cr.arc(0, 0, 1, std.math.pi / 2.0, std.math.pi * 1.5);
+            cr.restore();
+            if (filled) {
+                cr.lineTo(edge, y + h);
+                cr.lineTo(edge, y);
+                cr.closePath();
+                cr.fill();
+            } else {
+                cr.setLineWidth(thin);
+                cr.stroke();
+            }
+        },
+        0xE0B8, 0xE0BA, 0xE0BC, 0xE0BE => {
+            // Triangles filling half the cell, split along a diagonal.
+            const l = x - e;
+            const r = x + w + e;
+            const t = y - e;
+            const b = y + h + e;
+            switch (cp) {
+                0xE0B8 => {
+                    cr.moveTo(l, t);
+                    cr.lineTo(l, b);
+                    cr.lineTo(r, b);
+                },
+                0xE0BA => {
+                    cr.moveTo(r, t);
+                    cr.lineTo(r, b);
+                    cr.lineTo(l, b);
+                },
+                0xE0BC => {
+                    cr.moveTo(l, t);
+                    cr.lineTo(r, t);
+                    cr.lineTo(l, b);
+                },
+                else => {
+                    cr.moveTo(l, t);
+                    cr.lineTo(r, t);
+                    cr.lineTo(r, b);
+                },
+            }
+            cr.closePath();
+            cr.fill();
+        },
+        else => {
+            // The lines along those diagonals.
+            const up = cp == 0xE0BB or cp == 0xE0BD;
+            cr.moveTo(if (up) x + w else x, y);
+            cr.lineTo(if (up) x else x + w, y + h);
+            cr.setLineWidth(thin);
+            cr.stroke();
+        },
+    }
 }
 
 fn rounded(cr: *cairo.Context, cp: u32, x: f64, y: f64, w: f64, h: f64, thin: f64) void {
@@ -255,6 +350,7 @@ test "box drawing covers lines, corners and blocks" {
     try std.testing.expect(handles(0x256D));
     try std.testing.expect(handles(0x2588));
     try std.testing.expect(!handles('a'));
+    try std.testing.expect(handles(0xE0B0) and handles(0xE0B6) and !handles(0xE0B0 - 1) and !handles(0xE0C0));
     try std.testing.expect(handles(0x2596) and isBlock(0x2596));
     try std.testing.expect(handles(0x1FB00) and !isBlock(0x2500));
 }
