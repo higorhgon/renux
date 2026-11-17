@@ -223,8 +223,8 @@ const css =
     \\.key-hints { background-color: alpha(@popover_bg_color, 0.96); border-radius: 14px; padding: 12px 16px; box-shadow: 0 8px 30px alpha(black, 0.4), inset 0 0 0 1px alpha(@window_fg_color, 0.08); }
     \\.key-hints, .mode-chip { opacity: 0; transform: translateY(8px); transition: opacity 120ms ease-in, transform 120ms ease-in; }
     \\.key-hints.shown, .mode-chip.shown { opacity: 1; transform: none; transition: opacity 140ms ease-out, transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1); }
-    \\.hint-key { font-family: monospace; font-weight: 700; color: @accent_color; min-width: 18px; }
-    \\.hint-desc { font-size: 0.92em; }
+    \\.hint-key { font-family: monospace; font-weight: 700; color: @accent_color; min-width: 18px; min-height: 20px; }
+    \\.hint-desc { min-height: 20px; }
     \\.mode-chip { background-color: @accent_bg_color; color: @accent_fg_color; font-weight: 700; font-size: 0.85em; border-radius: 99px; padding: 6px 16px; box-shadow: 0 4px 16px alpha(black, 0.35); }
     \\.connect-box { margin: 0 24px; }
     \\.overview-name { font-size: 0.9em; font-weight: 600; color: @window_fg_color; text-shadow: 0 1px 4px alpha(black, 0.7); }
